@@ -821,7 +821,7 @@ int main(int argc, char* argv[]) {
     }
     // --- Run Mode ---
     else if (strcmp(argv[1], "run") == 0) {
-        if (argc != 6) {
+        if (argc != 7) {
             fprintf(stderr, "Error: Incorrect number of arguments for 'run' mode.\n");
             print_usage(argv[0]);
             return EXIT_FAILURE;
