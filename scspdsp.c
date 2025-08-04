@@ -564,9 +564,9 @@ void SCSPDSP_DisassembleProgram(struct _SCSPDSP *DSP) {
 }
 
 /**
- * @brief Loads a DSP program from a .EXC file into the DSP program memory (MPRO).
+ * @brief Loads a DSP program from a .EXL file into the DSP program memory (MPRO).
  *
- * This function reads a text-based .EXC file, parses the "PROG" section,
+ * This function reads a text-based .EXL file, parses the "PROG" section,
  * and populates the DSP's MPRO array with the 16-bit instruction words.
  * The .EXC file format is expected to have lines like:
  * [ProgramRAM Address]:[data]
@@ -662,7 +662,7 @@ int SCSPDSP_LoadProgramFromEXL(struct _SCSPDSP *DSP, const char *filename) {
  * @param output_r Pointer to the output PCM data buffer for the right channel (16-bit signed).
  * @param num_samples The number of audio samples to process.
  */
-void SCSPDSP_Run(SCSPDSP *DSP, const INT16* input_l, const INT16* input_r,
+void SCSPDSP_Run(struct _SCSPDSP *DSP, const INT16* input_l, const INT16* input_r,
                  INT16* output_l, INT16* output_r, int num_samples) {
     
     // Ensure the DSP is started before running
@@ -701,11 +701,221 @@ void SCSPDSP_Run(SCSPDSP *DSP, const INT16* input_l, const INT16* input_r,
     }
 }
 
-int main() {
-  // initialize DSP
-  struct _SCSPDSP* DSP = malloc(sizeof(struct _SCSPDSP));
-  // read DSP code block
-  SCSPDSP_LoadProgramFromEXL(DSP, "samples/SAMPLE.EXL");
-  // run disassembly
-  SCSPDSP_DisassembleProgram(DSP);
+
+/**
+ * @brief Reads 16-bit signed PCM data from a binary file into a dynamically allocated buffer.
+ *
+ * @param filename The path to the PCM file.
+ * @param buffer A pointer to an INT16* that will store the allocated buffer.
+ * The caller is responsible for freeing this memory.
+ * @param num_samples A pointer to a long that will store the number of samples read.
+ * @return 0 on success, -1 on failure.
+ */
+int read_pcm_file(const char* filename, INT16** buffer, long* num_samples) {
+    FILE* file = fopen(filename, "rb"); // Open in binary read mode
+    if (!file) {
+        fprintf(stderr, "Error: Could not open PCM input file '%s'\n", filename);
+        *buffer = NULL;
+        *num_samples = 0;
+        return -1;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    if (file_size % sizeof(INT16) != 0) {
+        fprintf(stderr, "Warning: PCM file '%s' size (%ld bytes) is not a multiple of sample size (%zu bytes). Truncating.\n",
+                filename, file_size, sizeof(INT16));
+    }
+
+    *num_samples = file_size / sizeof(INT16);
+    *buffer = (INT16*)malloc(*num_samples * sizeof(INT16));
+    if (!*buffer) {
+        fprintf(stderr, "Error: Failed to allocate memory for PCM buffer for '%s'.\n", filename);
+        fclose(file);
+        *num_samples = 0;
+        return -1;
+    }
+
+    size_t samples_read = fread(*buffer, sizeof(INT16), *num_samples, file);
+    if (samples_read != *num_samples) {
+        fprintf(stderr, "Warning: Read %zu samples from '%s', expected %ld.\n", samples_read, filename, *num_samples);
+        *num_samples = samples_read; // Update actual samples read
+    }
+
+    fclose(file);
+    return 0;
 }
+
+/**
+ * @brief Writes 16-bit signed PCM data from a buffer to a binary file.
+ *
+ * @param filename The path to the output PCM file.
+ * @param buffer The buffer containing the PCM data.
+ * @param num_samples The number of samples to write.
+ * @return 0 on success, -1 on failure.
+ */
+int write_pcm_file(const char* filename, const INT16* buffer, long num_samples) {
+    FILE* file = fopen(filename, "wb"); // Open in binary write mode
+    if (!file) {
+        fprintf(stderr, "Error: Could not open PCM output file '%s' for writing.\n", filename);
+        return -1;
+    }
+
+    size_t samples_written = fwrite(buffer, sizeof(INT16), num_samples, file);
+    if (samples_written != num_samples) {
+        fprintf(stderr, "Warning: Wrote %zu samples to '%s', expected %ld.\n", samples_written, filename, num_samples);
+    }
+
+    fclose(file);
+    return 0;
+}
+
+/**
+ * @brief Displays the command-line usage instructions.
+ * @param prog_name The name of the executable.
+ */
+void print_usage(const char* prog_name) {
+    fprintf(stderr, "Usage:\n");
+    fprintf(stderr, "  %s disasm <program.exc>\n", prog_name);
+    fprintf(stderr, "  %s run <program.exc> <input_l.pcm> <input_r.pcm> <output_l.pcm> <output_r.pcm>\n", prog_name);
+    fprintf(stderr, "\n");
+    fprintf(stderr, "  disasm: Disassembles the DSP program from the .exc file.\n");
+    fprintf(stderr, "  run:    Runs the DSP program with input PCM files and writes to output PCM files.\n");
+    fprintf(stderr, "          PCM files are assumed to be raw 16-bit signed stereo data.\n");
+}
+
+/**
+ * @brief Main entry point for the DSP emulator/disassembler command-line tool.
+ * @param argc The number of command-line arguments.
+ * @param argv An array of command-line argument strings.
+ * @return EXIT_SUCCESS on success, EXIT_FAILURE on error.
+ */
+int main(int argc, char* argv[]) {
+    struct _SCSPDSP* myDsp = malloc(sizeof(struct _SCSPDSP));
+
+    // Initialize all DSP struct members to zero
+    SCSPDSP_Init(myDsp); // Call the DSP initialization function
+
+    if (argc < 2) {
+        print_usage(argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    // --- Disassemble Mode ---
+    if (strcmp(argv[1], "disasm") == 0) {
+        if (argc != 3) {
+            fprintf(stderr, "Error: Incorrect number of arguments for 'disasm' mode.\n");
+            print_usage(argv[0]);
+            return EXIT_FAILURE;
+        }
+        const char* program_file = argv[2];
+
+        printf("Loading DSP program from '%s' for disassembly...\n", program_file);
+        if (SCSPDSP_LoadProgramFromEXL(myDsp, program_file) != 0) {
+            return EXIT_FAILURE; // Error already printed by LoadProgramFromEXC
+        }
+        SCSPDSP_DisassembleProgram(myDsp);
+        printf("Disassembly complete.\n");
+    }
+    // --- Run Mode ---
+    else if (strcmp(argv[1], "run") == 0) {
+        if (argc != 6) {
+            fprintf(stderr, "Error: Incorrect number of arguments for 'run' mode.\n");
+            print_usage(argv[0]);
+            return EXIT_FAILURE;
+        }
+        const char* program_file = argv[2];
+        const char* input_l_file = argv[3];
+        const char* input_r_file = argv[4];
+        const char* output_l_file = argv[5];
+        const char* output_r_file = argv[6]; // This should be argv[5] and argv[6] if argc is 6.
+                                             // Correction: argv[5] is the 5th argument, so output_r_file should be argv[6]
+                                             // Let's re-check argc. If run takes 5 arguments after "run", then argc should be 1 + 1 + 5 = 7.
+                                             // The current check `argc != 6` means `program.exc`, `input_l`, `input_r`, `output_l`, `output_r` are 4 arguments.
+                                             // It should be `argc != 7`.
+
+        // Corrected argument parsing for run mode
+        program_file = argv[2];
+        input_l_file = argv[3];
+        input_r_file = argv[4];
+        output_l_file = argv[5];
+        output_r_file = argv[6]; // This is now correct if argc is 7.
+
+        if (argc != 7) { // Corrected check for number of arguments for 'run' mode
+             fprintf(stderr, "Error: Incorrect number of arguments for 'run' mode.\n");
+             print_usage(argv[0]);
+             return EXIT_FAILURE;
+        }
+
+
+        printf("Loading DSP program from '%s' for execution...\n", program_file);
+        if (SCSPDSP_LoadProgramFromEXL(myDsp, program_file) != 0) {
+            return EXIT_FAILURE;
+        }
+
+        INT16 *input_l_buffer = NULL;
+        INT16 *input_r_buffer = NULL;
+        INT16 *output_l_buffer = NULL;
+        INT16 *output_r_buffer = NULL;
+        long num_samples_l = 0;
+        long num_samples_r = 0;
+
+        printf("Loading input PCM files: '%s' and '%s'...\n", input_l_file, input_r_file);
+        if (read_pcm_file(input_l_file, &input_l_buffer, &num_samples_l) != 0) {
+            return EXIT_FAILURE;
+        }
+        if (read_pcm_file(input_r_file, &input_r_buffer, &num_samples_r) != 0) {
+            free(input_l_buffer); // Free already allocated buffer
+            return EXIT_FAILURE;
+        }
+
+        if (num_samples_l != num_samples_r) {
+            fprintf(stderr, "Error: Input PCM files have different sample counts (%ld vs %ld).\n", num_samples_l, num_samples_r);
+            free(input_l_buffer);
+            free(input_r_buffer);
+            return EXIT_FAILURE;
+        }
+
+        printf("Processing %ld samples...\n", num_samples_l);
+        output_l_buffer = (INT16*)malloc(num_samples_l * sizeof(INT16));
+        output_r_buffer = (INT16*)malloc(num_samples_l * sizeof(INT16));
+        if (!output_l_buffer || !output_r_buffer) {
+            fprintf(stderr, "Error: Failed to allocate memory for output PCM buffers.\n");
+            free(input_l_buffer);
+            free(input_r_buffer);
+            free(output_l_buffer); // free if one was allocated
+            free(output_r_buffer); // free if one was allocated
+            return EXIT_FAILURE;
+        }
+
+        SCSPDSP_Run(myDsp, input_l_buffer, input_r_buffer,
+                    output_l_buffer, output_r_buffer, num_samples_l);
+
+        printf("Writing output PCM files: '%s' and '%s'...\n", output_l_file, output_r_file);
+        if (write_pcm_file(output_l_file, output_l_buffer, num_samples_l) != 0) {
+            // Continue to free all buffers even if one write fails
+        }
+        if (write_pcm_file(output_r_file, output_r_buffer, num_samples_l) != 0) {
+            // Continue to free all buffers even if one write fails
+        }
+
+        printf("Processing complete.\n");
+
+        // Clean up allocated memory
+        free(input_l_buffer);
+        free(input_r_buffer);
+        free(output_l_buffer);
+        free(output_r_buffer);
+    }
+    // --- Invalid Mode ---
+    else {
+        fprintf(stderr, "Error: Unknown command '%s'.\n", argv[1]);
+        print_usage(argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
