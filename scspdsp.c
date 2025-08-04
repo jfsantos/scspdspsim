@@ -365,122 +365,202 @@ void SCSPDSP_Step(struct _SCSPDSP *DSP) {
 
 // A structure to hold the decoded instruction fields for clarity.
 typedef struct {
-  uint32_t tra;
-  uint32_t twt;
-  uint32_t twa;
-  uint32_t xsel;
-  uint32_t ysel;
-  uint32_t ira;
-  uint32_t iwt;
-  uint32_t iwa;
-  uint32_t table;
-  uint32_t mwt;
-  uint32_t mrd;
-  uint32_t ewt;
-  uint32_t ewa;
-  uint32_t adrl;
-  uint32_t frcl;
-  uint32_t shift;
-  uint32_t yrl;
-  uint32_t negb;
-  uint32_t zero;
-  uint32_t bsel;
-  uint32_t nofl;
-  uint32_t coef;
-  uint32_t masa;
-  uint32_t adreb;
-  uint32_t nxadr;
+    uint32_t tra;
+    uint32_t twt;
+    uint32_t twa;
+    uint32_t xsel;
+    uint32_t ysel;
+    uint32_t ira;
+    uint32_t iwt;
+    uint32_t iwa;
+    uint32_t table;
+    uint32_t mwt;
+    uint32_t mrd;
+    uint32_t ewt;
+    uint32_t ewa;
+    uint32_t adrl;
+    uint32_t frcl;
+    uint32_t shift;
+    uint32_t yrl;
+    uint32_t negb;
+    uint32_t zero;
+    uint32_t bsel;
+    uint32_t nofl;
+    uint32_t coef;
+    uint32_t masa;
+    uint32_t adreb;
+    uint32_t nxadr;
 } dsp_instruction_t;
 
-// Function to print a human-readable disassembly of a DSP instruction.
-// This function mimics the decoding logic from SCSPDSP_Step.
+/**
+ * @brief Disassembles a single DSP instruction and prints a human-readable representation.
+ *
+ * This function takes the four 16-bit words of a DSP instruction, decodes its
+ * various control fields, and prints a descriptive "assembly-like" output
+ * indicating the parallel operations performed by the instruction.
+ *
+ * @param IPtr A pointer to the first of the four 16-bit words of the instruction.
+ * @param step_index The program memory address (0-127) of the instruction.
+ */
 void SCSPDSP_Disassemble(uint16_t *IPtr, int step_index) {
-  dsp_instruction_t instr;
+    dsp_instruction_t instr;
 
-  // Decode instruction fields from the four 16-bit words
-  instr.tra = (IPtr[0] >> 8) & 0x7F; // TEMP Read Address
-  instr.twt = (IPtr[0] >> 7) & 0x01; // TEMP Write Trigger
-  instr.twa = (IPtr[0] >> 0) & 0x7F; // TEMP Write Address
+    // Decode instruction fields from the four 16-bit words
+    instr.tra = (IPtr[0] >> 8) & 0x7F;   // TEMP Read Address
+    instr.twt = (IPtr[0] >> 7) & 0x01;   // TEMP Write Trigger
+    instr.twa = (IPtr[0] >> 0) & 0x7F;   // TEMP Write Address
 
-  instr.xsel = (IPtr[1] >> 15) & 0x01; // X Operand Selector
-  instr.ysel = (IPtr[1] >> 13) & 0x03; // Y Operand Selector
-  instr.ira = (IPtr[1] >> 6) & 0x3F;   // Input Read Address
-  instr.iwt = (IPtr[1] >> 5) & 0x01;   // Input Write Trigger
-  instr.iwa = (IPtr[1] >> 0) & 0x1F;   // Input Write Address
+    instr.xsel = (IPtr[1] >> 15) & 0x01; // X Operand Selector
+    instr.ysel = (IPtr[1] >> 13) & 0x03; // Y Operand Selector
+    instr.ira = (IPtr[1] >> 6) & 0x3F;   // Input Read Address
+    instr.iwt = (IPtr[1] >> 5) & 0x01;   // Input Write Trigger
+    instr.iwa = (IPtr[1] >> 0) & 0x1F;   // Input Write Address
 
-  instr.table = (IPtr[2] >> 15) & 0x01; // Table Select for address calc
-  instr.mwt = (IPtr[2] >> 14) & 0x01;   // Main Memory Write Trigger
-  instr.mrd = (IPtr[2] >> 13) & 0x01;   // Main Memory Read Trigger
-  instr.ewt = (IPtr[2] >> 12) & 0x01;   // Effect Memory Write Trigger
-  instr.ewa = (IPtr[2] >> 8) & 0x0F;    // Effect Memory Write Address
-  instr.adrl = (IPtr[2] >> 7) & 0x01;   // Address Register Load Trigger
-  instr.frcl = (IPtr[2] >> 6) & 0x01;   // FRC Register Load Trigger
-  instr.shift = (IPtr[2] >> 4) & 0x03;  // Shifter Control
-  instr.yrl = (IPtr[2] >> 3) & 0x01;    // Y Register Load Trigger
-  instr.negb = (IPtr[2] >> 2) & 0x01;   // Negate B operand
-  instr.zero = (IPtr[2] >> 1) & 0x01;   // Zero B operand
-  instr.bsel = (IPtr[2] >> 0) & 0x01;   // B Operand Selector
+    instr.table = (IPtr[2] >> 15) & 0x01; // Table Select for address calc
+    instr.mwt = (IPtr[2] >> 14) & 0x01;   // Main Memory Write Trigger
+    instr.mrd = (IPtr[2] >> 13) & 0x01;   // Main Memory Read Trigger
+    instr.ewt = (IPtr[2] >> 12) & 0x01;   // Effect Memory Write Trigger
+    instr.ewa = (IPtr[2] >> 8) & 0x0F;    // Effect Memory Write Address
+    instr.adrl = (IPtr[2] >> 7) & 0x01;   // Address Register Load Trigger
+    instr.frcl = (IPtr[2] >> 6) & 0x01;   // FRC Register Load Trigger
+    instr.shift = (IPtr[2] >> 4) & 0x03;  // Shifter Control
+    instr.yrl = (IPtr[2] >> 3) & 0x01;    // Y Register Load Trigger
+    instr.negb = (IPtr[2] >> 2) & 0x01;   // Negate B operand
+    instr.zero = (IPtr[2] >> 1) & 0x01;   // Zero B operand
+    instr.bsel = (IPtr[2] >> 0) & 0x01;   // B Operand Selector
 
-  instr.nofl = (IPtr[3] >> 15) & 1;   // No Floating-Point conversion
-  instr.coef = (IPtr[3] >> 9) & 0x3F; // Coefficient Index
-  instr.masa = (IPtr[3] >> 2) & 0x1F; // Main Memory Address Source
-  instr.adreb = (IPtr[3] >> 1) & 0x1; // Add Address Register to address
-  instr.nxadr = (IPtr[3] >> 0) & 0x1; // Next Address
+    instr.nofl = (IPtr[3] >> 15) & 1;    // No Floating-Point conversion (direct 16-bit access)
+    instr.coef = (IPtr[3] >> 9) & 0x3F;   // Coefficient Index
+    instr.masa = (IPtr[3] >> 2) & 0x1F;   // Main Memory Address Source
+    instr.adreb = (IPtr[3] >> 1) & 0x1;   // Add Address Register to address
+    instr.nxadr = (IPtr[3] >> 0) & 0x1;   // Next Address (increment address)
 
-  // Print the decoded fields in a structured format
-  printf("DSP Instruction at MPRO[%d]:\n", step_index);
-  printf("  RAW: 0x%04X 0x%04X 0x%04X 0x%04X\n", IPtr[0], IPtr[1], IPtr[2],
-         IPtr[3]);
-  printf("  --- Memory and Data Movement ---\n");
-  printf("  TEMP READ:    TRA=0x%02X\n", instr.tra);
-  if (instr.twt) {
-    printf("  TEMP WRITE:   TWT=1, TWA=0x%02X\n", instr.twa);
-  }
-  printf("  INPUT READ:   IRA=0x%02X (%s)\n", instr.ira,
-         (instr.ira <= 0x1F) ? "MEMS" : "MIXS");
-  if (instr.iwt) {
-    printf("  INPUT WRITE:  IWT=1, IWA=0x%02X\n", instr.iwa);
-  }
-  if (instr.mrd || instr.mwt) {
-    printf("  MAIN MEMORY:  %s%s\n", instr.mrd ? "READ " : "",
-           instr.mwt ? "WRITE" : "");
-    printf("    Addr Calc:  MASA=0x%02X, ADREB=%d, NXADR=%d, TABLE=%d\n",
-           instr.masa, instr.adreb, instr.nxadr, instr.table);
-    if (instr.nofl) {
-      printf("    Data Type:  NOFL (Direct 16-bit)\n");
+    // Print the instruction address and raw hexadecimal words
+    printf("MPRO[%02X]: %04X %04X %04X %04X  | ", step_index, IPtr[0], IPtr[1], IPtr[2], IPtr[3]);
+
+    // Build the disassembly string
+    char disasm_str[256] = "";
+    char temp_str[64];
+
+    // --- Input/Output Operations ---
+    if (instr.iwt) {
+        sprintf(temp_str, "MEMS[0x%02X] = MEMVAL; ", instr.iwa); // MEMVAL is from previous MRD
+        strcat(disasm_str, temp_str);
     }
-  }
-  if (instr.ewt) {
-    printf("  EFFECT WRITE: EWT=1, EWA=0x%02X\n", instr.ewa);
-  }
+    sprintf(temp_str, "INPUTS = %s[0x%02X]; ", 
+            (instr.ira <= 0x1F) ? "MEMS" : ((instr.ira <= 0x2F) ? "MIXS" : "0"), instr.ira);
+    strcat(disasm_str, temp_str);
 
-  printf("  --- Registers and ALU Operations ---\n");
-  printf("  Y REGISTER:   %s, YSEL=%d (%s)\n", instr.yrl ? "LOAD" : "NO LOAD",
-         instr.ysel,
-         instr.ysel == 0   ? "FRC_REG"
-         : instr.ysel == 1 ? "COEF"
-         : instr.ysel == 2 ? "Y_REG[13:0]"
-                           : "Y_REG[11:0]");
-  printf("  FRC REGISTER: %s\n", instr.frcl ? "LOAD" : "NO LOAD");
-  printf("  ADDR REG:     %s\n", instr.adrl ? "LOAD" : "NO LOAD");
-  printf("  B OPERAND:    %s, BSEL=%d (%s) %s\n", instr.zero ? "ZERO" : "SET",
-         instr.bsel, instr.bsel ? "ACC" : "TEMP", instr.negb ? "NEGATE" : "");
-  printf("  X OPERAND:    XSEL=%d (%s)\n", instr.xsel,
-         instr.xsel ? "INPUTS" : "TEMP");
-  printf("  SHIFT OP:     SHIFT=%d (%s)\n", instr.shift,
-         instr.shift == 0   ? "SATURATE"
-         : instr.shift == 1 ? "SHIFT_LEFT_1_SATURATE"
-         : instr.shift == 2 ? "SHIFT_LEFT_1"
-                            : "NO_SHIFT");
+    // --- Register Loads ---
+    if (instr.yrl) {
+        strcat(disasm_str, "LDY Y_REG = INPUTS; ");
+    }
+    if (instr.adrl) {
+        // ADRL can load from SHIFTED or INPUTS depending on SHIFT==3
+        if (instr.shift == 3) {
+            strcat(disasm_str, "LDA ADREG = (SHIFTED >> 12) & 0xFFF; ");
+        } else {
+            strcat(disasm_str, "LDA ADREG = INPUTS >> 16; ");
+        }
+    }
+    if (instr.frcl) {
+        if (instr.shift == 3) {
+            strcat(disasm_str, "LDFRC FRC_REG = SHIFTED & 0x0FFF; ");
+        } else {
+            strcat(disasm_str, "LDFRC FRC_REG = (SHIFTED >> 11) & 0x1FFF; ");
+        }
+    }
 
-  printf("\n");
+    // --- Operand Selection ---
+    char x_src[32], y_src[32], b_src[32];
+
+    sprintf(x_src, "%s", instr.xsel ? "INPUTS" : "TEMP[TRA+DEC]");
+    
+    switch (instr.ysel) {
+        case 0: sprintf(y_src, "FRC_REG"); break;
+        case 1: sprintf(y_src, "COEF[0x%02X]", instr.coef); break;
+        case 2: sprintf(y_src, "Y_REG[13:0]"); break; // (Y_REG >> 11) & 0x1FFF
+        case 3: sprintf(y_src, "Y_REG[11:0]"); break; // (Y_REG >> 4) & 0x0FFF
+        default: sprintf(y_src, "UNKNOWN"); break;
+    }
+
+    if (instr.zero) {
+        sprintf(b_src, "0");
+    } else {
+        sprintf(b_src, "%s%s", instr.negb ? "-" : "", instr.bsel ? "ACC" : "TEMP[TRA+DEC]");
+    }
+
+    // --- ALU Operation (Multiply-Accumulate) ---
+    sprintf(temp_str, "ACC = (%s * %s) >> 12 + %s; ", x_src, y_src, b_src);
+    strcat(disasm_str, temp_str);
+
+    // --- Shifter Operation ---
+    const char* shift_op;
+    switch (instr.shift) {
+        case 0: shift_op = "SATURATE(ACC)"; break;
+        case 1: shift_op = "SATURATE(ACC * 2)"; break;
+        case 2: shift_op = "(ACC * 2) & 0xFFFFFF"; break; // Shift left 1, then sign extend to 24-bit
+        case 3: shift_op = "ACC & 0xFFFFFF"; break;      // No shift, just sign extend to 24-bit
+        default: shift_op = "UNKNOWN_SHIFT(ACC)"; break;
+    }
+    sprintf(temp_str, "SHIFTED = %s; ", shift_op);
+    strcat(disasm_str, temp_str);
+
+    // --- Store Operations ---
+    if (instr.twt) {
+        sprintf(temp_str, "STORE TEMP[0x%02X] = SHIFTED; ", instr.twa);
+        strcat(disasm_str, temp_str);
+    }
+    if (instr.mrd || instr.mwt) {
+        char mem_addr_str[64];
+        sprintf(mem_addr_str, "MADRS[0x%02X]%s%s%s", instr.masa,
+                instr.table ? "" : "+DEC",
+                instr.adreb ? "+ADREG" : "",
+                instr.nxadr ? "+1" : "");
+        
+        if (instr.mrd) {
+            sprintf(temp_str, "MR MEMVAL = SCSPRAM[%s]%s; ", mem_addr_str, instr.nofl ? " (Direct)" : " (Unpack)");
+            strcat(disasm_str, temp_str);
+        }
+        if (instr.mwt) {
+            sprintf(temp_str, "MW SCSPRAM[%s] = SHIFTED%s; ", mem_addr_str, instr.nofl ? " (Direct)" : " (Pack)");
+            strcat(disasm_str, temp_str);
+        }
+    }
+    if (instr.ewt) {
+        sprintf(temp_str, "ADD_EFREG EFREG[0x%02X] += SHIFTED >> 8; ", instr.ewa);
+        strcat(disasm_str, temp_str);
+    }
+    
+    // If no specific operations were identified, indicate a NOP or unknown.
+    if (strlen(disasm_str) == 0) {
+        strcat(disasm_str, "NOP; ");
+    }
+
+    printf("%s\n", disasm_str);
 }
 
+/**
+ * @brief Disassembles the entire DSP program loaded into MPRO.
+ *
+ * This function iterates through all 128 possible steps in the DSP program
+ * memory (MPRO) and calls SCSPDSP_Disassemble for each instruction,
+ * providing a full disassembly listing.
+ *
+ * @param DSP A pointer to the SCSPDSP structure containing the program.
+ */
 void SCSPDSP_DisassembleProgram(struct _SCSPDSP *DSP) {
-  int step;
-  for (step = 0; step < 128; ++step) {
-    SCSPDSP_Disassemble(DSP->MPRO + step * 4, step);
-  }
+    printf("--- Sega Saturn SCSP DSP Program Disassembly ---\n");
+    printf("Addr | Raw Instruction (4x 16-bit words) | Operations\n");
+    printf("-----|-----------------------------------|------------------------------------------------------------------\n");
+    for(int step = 0; step < 128; ++step) {
+        // Only disassemble if the instruction is not all zeros (or up to LastStep if available)
+        // For a full disassembly, we can iterate all 128 steps.
+        // If you want to limit to actual program length, use DSP->LastStep.
+        // For this disassembler, showing all potential steps is more informative.
+        SCSPDSP_Disassemble(DSP->MPRO + step * 4, step);
+    }
+    printf("--------------------------------------------------------------------------------------------------------------\n");
 }
 
 /**
