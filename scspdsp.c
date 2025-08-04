@@ -648,6 +648,59 @@ int SCSPDSP_LoadProgramFromEXL(struct _SCSPDSP *DSP, const char *filename) {
     return 0; // Success
 }
 
+/**
+ * @brief Runs the loaded DSP program to process PCM audio data.
+ *
+ * This function simulates the DSP's operation over a given number of audio samples.
+ * For each sample, it feeds the input data to the DSP's mixers, executes one DSP step,
+ * and then retrieves the processed output from the effect registers.
+ *
+ * @param DSP A pointer to the SCSPDSP structure with the loaded program.
+ * @param input_l Pointer to the input PCM data buffer for the left channel (16-bit signed).
+ * @param input_r Pointer to the input PCM data buffer for the right channel (16-bit signed).
+ * @param output_l Pointer to the output PCM data buffer for the left channel (16-bit signed).
+ * @param output_r Pointer to the output PCM data buffer for the right channel (16-bit signed).
+ * @param num_samples The number of audio samples to process.
+ */
+void SCSPDSP_Run(SCSPDSP *DSP, const INT16* input_l, const INT16* input_r,
+                 INT16* output_l, INT16* output_r, int num_samples) {
+    
+    // Ensure the DSP is started before running
+    if (DSP->Stopped) {
+        SCSPDSP_Start(DSP);
+    }
+
+    // FIXME this whole implementation assumes we are feeding stereo data in and out.
+    // Linker actually allows us to run more inputs and outputs to DSP code.
+    for (int i = 0; i < num_samples; ++i) {
+        // Feed input samples to the DSP's MIXS registers.
+        // Assuming MIXS[0] for left and MIXS[1] for right, based on common stereo setups
+        // and the dAsms example using EXTS00 and EXTS01 for L/R input.
+        // The SCSPDSP_SetSample function adds the sample to MIXS.
+        SCSPDSP_SetSample(DSP, input_l[i], 0, 0); // SEL=0 for Left Channel
+        SCSPDSP_SetSample(DSP, input_r[i], 1, 0); // SEL=1 for Right Channel
+
+        // Execute one step of the DSP program
+        SCSPDSP_Step(DSP);
+
+        // Retrieve processed output from EFREG.
+        // The dAsms example outputted to EFREG00 for L and EFREG01 for R (stereo out).
+        // EFREG stores 24-bit values (shifted by 8 from SHIFTED), so convert back to 16-bit.
+        // Clamp to INT16 range (-32768 to 32767)
+        INT32 out_l_raw = DSP->EFREG[0];
+        INT32 out_r_raw = DSP->EFREG[1];
+
+        // Clamp and convert to INT16
+        if (out_l_raw > 32767) out_l_raw = 32767;
+        if (out_l_raw < -32768) out_l_raw = -32768;
+        output_l[i] = (INT16)out_l_raw;
+
+        if (out_r_raw > 32767) out_r_raw = 32767;
+        if (out_r_raw < -32768) out_r_raw = -32768;
+        output_r[i] = (INT16)out_r_raw;
+    }
+}
+
 int main() {
   // initialize DSP
   struct _SCSPDSP* DSP = malloc(sizeof(struct _SCSPDSP));
