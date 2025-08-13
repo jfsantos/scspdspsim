@@ -1,0 +1,38 @@
+#COEF
+'delay parameters
+EffSendLevelL=%100
+EffSendLevelR=%100
+DrctLevelL=%50
+DrctLevelR=%50
+EffRtnLevelL=%75
+EffRtnLevelR=%75
+FbL=%50
+FbR=%50
+'filter coefficients
+C0L=0.40893
+C0R=0.40893
+C1L=0.40893
+C1R=0.40893
+C2L=0.18164
+C2R=0.18164
+#ADRS
+waL=ms0.0
+raL=ms149.9
+waR=ms150.0
+raR=ms249.9
+
+#PROG
+'left channel
+LDI MEMS00,MR[raL+DEC]
+LDI MEMS01,MR[raL+DEC+1]
+@ TEMP01 * C2L + (MEMS01 * C1L + (MEMS00 * C0L +))>TEMP00
+@ TEMP00 * FbL + (EXTS00 * EffSendLevelL +)>MW[waL + DEC]
+@ EXTS00 * DrctLevelL + (MEMS00 * EffRtnLevelL +)>EFREG00
+'right channel
+LDI MEMS02,MR[raR+DEC]
+LDI MEMS03,MR[raR+DEC+1]
+@ TEMP03 * C2R + (MEMS03 * C1R + (MEMS02 * C0R +))>TEMP02
+@ TEMP02 * FbR + (EXTS01 * EffSendLevelR +)>MW[waR + DEC]
+@ EXTS01 * DrctLevelR + (MEMS02 * EffRtnLevelR +)>EFREG01
+
+=END
